@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>元素沙盒 · 一粒沙的物理学</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --panel: #12121e;
+    --panel2: #191928;
+    --line: #272740;
+    --txt: #ececf6;
+    --dim: #8f8fab;
+    --accent: #ffb347;
+    --accent2: #38bdf8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--txt);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+
+  header {
+    padding: 13px 18px 10px;
+    display: flex; align-items: baseline; gap: 12px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #10101c, var(--bg));
+    flex: none;
+  }
+  header h1 {
+    font-size: clamp(20px, 4.6vw, 30px);
+    letter-spacing: 3px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #ffb347, #ff6b6b, #b388ff, #38bdf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    white-space: nowrap;
+  }
+  header .sub { font-size: clamp(12px, 2.6vw, 15px); color: var(--dim); white-space: nowrap; }
+
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #stage { position: relative; flex: 1; min-height: 0; background: #0a0a12; }
+  #cv {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+    image-rendering: pixelated; touch-action: none; cursor: crosshair;
+  }
+  #hud {
+    position: absolute; top: 10px; left: 12px;
+    font-size: clamp(11px, 2.2vw, 14px);
+    color: var(--dim);
+    background: rgba(10,10,20,.6);
+    padding: 4px 10px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.07);
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  #panel {
+    flex: none;
+    width: 100%;
+    max-height: 48%;
+    overflow-y: auto;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    padding: 12px 14px 16px;
+    display: flex; flex-direction: column; gap: 11px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row > label { font-size: clamp(12px, 2.6vw, 15px); color: var(--dim); flex: none; width: 3.4em; }
+
+  button {
+    font-family: inherit;
+    background: var(--panel2);
+    color: var(--txt);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 13px;
+    font-size: clamp(13px, 2.8vw, 16px);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .05s;
+    user-select: none;
+  }
+  button:hover { background: #222238; border-color: #3c3c60; }
+  button:active { transform: scale(.96); }
+  button.primary { background: linear-gradient(135deg, #b45309, #dc2626); border-color: #f59e0b; color: #fff; }
+
+  /* 元素选择 */
+  .chip {
+    flex: 1 1 14%; min-width: 56px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 4px;
+  }
+  .chip .dot { width: 14px; height: 14px; border-radius: 4px; flex: none; box-shadow: 0 0 6px rgba(255,255,255,.15) inset; }
+  .chip.active { border-color: var(--accent); background: #2a2118; box-shadow: 0 0 0 1px var(--accent); }
+
+  .preset { flex: 1 1 auto; min-width: 72px; text-align: center; }
+  .preset.active { background: linear-gradient(135deg, #0e7490, #155e75); border-color: #22d3ee; color: #fff; }
+
+  input[type=range] { flex: 1; min-width: 100px; height: 30px; accent-color: var(--accent); cursor: pointer; }
+  .val { color: var(--accent); min-width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; font-size: clamp(12px, 2.6vw, 15px); }
+
+  footer {
+    flex: none; text-align: center; color: #55556e;
+    font-size: clamp(10px, 2vw, 12px);
+    padding: 4px 0 7px; background: var(--panel);
+  }
+
+  @media (orientation: landscape) and (min-width: 860px) {
+    body { flex-direction: row; flex-wrap: wrap; }
+    header { width: 100%; }
+    main { width: 100%; flex-direction: row; }
+    #panel { width: 360px; max-height: none; border-top: none; border-left: 1px solid var(--line); }
+    footer { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>元素沙盒</h1>
+  <span class="sub">一粒沙的物理学 · 涌现的艺术</span>
+</header>
+
+<main>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud">FPS -- · 细胞 -- · 沙子</div>
+  </div>
+
+  <div id="panel">
+    <div class="row" id="palette"></div>
+
+    <div class="row">
+      <button id="btnPause" class="primary" style="flex:1">⏸ 暂停</button>
+      <button id="btnStep" style="flex:1">⏭ 单步</button>
+      <button id="btnClear" style="flex:1">🗑 清空</button>
+    </div>
+
+    <div class="row" id="presetRow">
+      <button class="preset" data-p="blank">空白</button>
+      <button class="preset" data-p="volcano">火山岛</button>
+      <button class="preset" data-p="desert">沙漠油田</button>
+      <button class="preset" data-p="tank">水族箱</button>
+    </div>
+
+    <div class="row"><label>笔刷</label><input type="range" id="sB" min="1" max="22" step="1" value="6"><span class="val" id="vB">6</span></div>
+  </div>
+</main>
+
+<footer>元素沙盒 · 零依赖 · 单文件 · 元胞自动机 × Canvas</footer>
+
+<script>
+"use strict";
+
+/* ================= 元素定义 ================= */
+const E = {
+  EMPTY: 0, WALL: 1, SAND: 2, WATER: 3, OIL: 4, FIRE: 5, WOOD: 6, STONE: 7,
+  STEAM: 8, SMOKE: 9, LAVA: 10, ACID: 11, SALT: 12, SALTW: 13,
+};
+const NAMES = {
+  [E.EMPTY]: "橡皮", [E.WALL]: "墙", [E.SAND]: "沙子", [E.WATER]: "水",
+  [E.OIL]: "油", [E.FIRE]: "火", [E.WOOD]: "木头", [E.STONE]: "石头",
+  [E.STEAM]: "蒸汽", [E.SMOKE]: "烟", [E.LAVA]: "熔岩", [E.ACID]: "酸液",
+  [E.SALT]: "盐", [E.SALTW]: "盐水",
+};
+/* 调色板：每元素 4 档明暗（渲染时按细胞创建时存的 shade 取色，避免闪烁） */
+function shade4(r, g, b, dv = 18) {
+  return [0, 1, 2, 3].map(k => {
+    const f = 1 - (k - 1.5) * dv / 100;
+    return [Math.min(255, r * f) | 0, Math.min(255, g * f) | 0, Math.min(255, b * f) | 0];
+  });
+}
+const PALETTE = {
+  [E.EMPTY]: [[10, 10, 18], [10, 10, 18], [10, 10, 18], [10, 10, 18]],
+  [E.WALL]: shade4(64, 68, 88, 12),
+  [E.SAND]: shade4(224, 194, 110, 22),
+  [E.WATER]: shade4(42, 110, 224, 16),
+  [E.OIL]: shade4(58, 42, 66, 26),
+  [E.FIRE]: [[255, 236, 130], [255, 168, 46], [255, 96, 26], [226, 48, 18]],
+  [E.WOOD]: shade4(128, 88, 48, 20),
+  [E.STONE]: shade4(126, 126, 136, 14),
+  [E.STEAM]: shade4(176, 190, 208, 10),
+  [E.SMOKE]: shade4(82, 82, 92, 16),
+  [E.LAVA]: [[255, 196, 60], [255, 110, 24], [240, 62, 14], [196, 36, 10]],
+  [E.ACID]: shade4(92, 232, 74, 22),
+  [E.SALT]: shade4(232, 234, 240, 8),
+  [E.SALTW]: shade4(56, 146, 222, 14),
+};
+/* 打包成 Uint32（little-endian ABGR），渲染走 Uint32Array 快通道 */
+const PAL32 = {};
+for (const t in PALETTE) PAL32[t] = PALETTE[t].map(([r, g, b]) => (255 << 24) | (b << 16) | (g << 8) | r);
+
+const FLAMMABLE = { [E.WOOD]: 0.05, [E.OIL]: 0.4 };   // 被火点着的概率/帧
+const ACID_EATS = { [E.SAND]: 1, [E.SALT]: 1, [E.WOOD]: 1, [E.STONE]: 1, [E.OIL]: 1 };
+
+/* ================= 网格状态 ================= */
+let W = 0, H = 0, N = 0;
+let type, shade, life, moved;   // Uint8 / Uint8 / Int16 / Uint8
+let frame = 0;
+
+function allocGrid(w, h) {
+  W = w; H = h; N = w * h;
+  type = new Uint8Array(N);
+  shade = new Uint8Array(N);
+  life = new Int16Array(N);
+  moved = new Uint8Array(N);
+}
+
+const inb = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
+const at = (x, y) => type[y * W + x];
+
+function setCell(x, y, t, lf = 0) {
+  if (!inb(x, y)) return;
+  const i = y * W + x;
+  type[i] = t;
+  shade[i] = (Math.random() * 4) | 0;
+  life[i] = lf;
+}
+
+function swapCells(i, j) {
+  let t;
+  t = type[i]; type[i] = type[j]; type[j] = t;
+  t = shade[i]; shade[i] = shade[j]; shade[j] = t;
+  t = life[i]; life[i] = life[j]; life[j] = t;
+  moved[i] = moved[j] = 1;
+}
+
+/* ================= 物理更新 ================= */
+const isLiquid = t => t === E.WATER || t === E.OIL || t === E.SALTW || t === E.LAVA || t === E.ACID;
+/* 密度：重的可以穿过轻的往下沉 */
+const DENSITY = {
+  [E.EMPTY]: 0, [E.STEAM]: 0, [E.SMOKE]: 0, [E.FIRE]: 0,
+  [E.OIL]: 3, [E.WATER]: 5, [E.ACID]: 5, [E.SALTW]: 6, [E.LAVA]: 8,
+  [E.SAND]: 20, [E.SALT]: 20,
+};
+
+function tryMoveOrSink(x, y, nx, ny, myT) {
+  if (!inb(nx, ny)) return false;
+  const i = y * W + x, j = ny * W + nx;
+  const t = type[j];
+  if (t === E.EMPTY) { swapCells(i, j); return true; }
+  const dMe = DENSITY[myT] || 0, dIt = DENSITY[t] || 0;
+  if (dMe > dIt && dIt > 0 && dMe > 0) { swapCells(i, j); return true; }
+  return false;
+}
+
+function ignite(x, y, lf) {
+  const i = y * W + x;
+  if (type[i] === E.WOOD || type[i] === E.OIL) {
+    type[i] = E.FIRE; life[i] = lf; shade[i] = (Math.random() * 4) | 0; moved[i] = 1;
+  }
+}
+
+function updSand(x, y, i, myT) {
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  if (tryMoveOrSink(x, y, x, y + 1, myT)) return;
+  if (tryMoveOrSink(x, y, x + dir, y + 1, myT)) return;
+  tryMoveOrSink(x, y, x - dir, y + 1, myT);
+}
+
+function updLiquid(x, y, i, myT, slow = 1) {
+  if (slow > 1 && (frame % slow)) return;
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  if (tryMoveOrSink(x, y, x, y + 1, myT)) return;
+  if (tryMoveOrSink(x, y, x + dir, y + 1, myT)) return;
+  if (tryMoveOrSink(x, y, x - dir, y + 1, myT)) return;
+  /* 水平扩散 */
+  if (Math.random() < 0.7) {
+    const steps = 1 + ((Math.random() * 3) | 0);
+    for (let s = 1; s <= steps; s++) {
+      if (!tryMoveOrSink(x + dir * (s - 1), y, x + dir * s, y, myT)) break;
+      x += dir;
+    }
+  }
+}
+
+function acidReact(x, y) {
+  const dirs = [[0, 1], [1, 0], [-1, 0], [0, -1]];
+  const [dx, dy] = dirs[(Math.random() * 4) | 0];
+  const nx = x + dx, ny = y + dy;
+  if (!inb(nx, ny)) return;
+  const j = ny * W + nx;
+  if (ACID_EATS[type[j]] && Math.random() < 0.07) {
+    setCell(nx, ny, Math.random() < 0.25 ? E.SMOKE : E.EMPTY, 60);
+    setCell(x, y, E.EMPTY);           // 酸被消耗
+    moved[j] = 1;
+  }
+}
+
+function fireReact(x, y, i) {
+  for (let k = 0; k < 8; k++) {
+    const nx = x + [0, 1, 1, 1, 0, -1, -1, -1][k];
+    const ny = y + [1, 1, 0, -1, -1, -1, 0, 1][k];
+    if (!inb(nx, ny)) continue;
+    const j = ny * W + nx, t = type[j];
+    if (FLAMMABLE[t] && Math.random() < FLAMMABLE[t]) {
+      ignite(nx, ny, t === E.OIL ? 18 + ((Math.random() * 18) | 0) : 380 + ((Math.random() * 120) | 0));
+    } else if (t === E.WATER && Math.random() < 0.12) {
+      setCell(nx, ny, E.STEAM, 240 + ((Math.random() * 160) | 0));
+      if (Math.random() < 0.15) { setCell(x, y, E.EMPTY); return true; }  // 火被浇灭
+    } else if (t === E.SALTW && Math.random() < 0.12) {
+      setCell(nx, ny, E.STEAM, 240 + ((Math.random() * 160) | 0));
+      if (Math.random() < 0.5) setCell(nx, ny - 1 >= 0 ? nx : nx, E.SALT); // 盐析出
+      if (Math.random() < 0.15) { setCell(x, y, E.EMPTY); return true; }
+    }
+  }
+  return false;
+}
+
+function lavaReact(x, y, i) {
+  for (let k = 0; k < 4; k++) {
+    const nx = x + [0, 1, -1, 0][k], ny = y + [1, 0, 0, -1][k];
+    if (!inb(nx, ny)) continue;
+    const j = ny * W + nx, t = type[j];
+    if ((t === E.WATER || t === E.SALTW) && Math.random() < 0.4) {
+      setCell(nx, ny, E.STEAM, 300 + ((Math.random() * 200) | 0));
+      if (t === E.SALTW && Math.random() < 0.4) setCell(x, y, E.SALT);
+      else if (Math.random() < 0.35) setCell(x, y, E.STONE);
+      return;
+    }
+    if (FLAMMABLE[t] && Math.random() < 0.3) ignite(nx, ny, 30 + ((Math.random() * 30) | 0));
+  }
+  if (Math.random() < 0.0016) setCell(x, y, E.STONE);   // 缓慢冷却
+}
+
+function updGas(x, y, i, myT, condenseT, maxLife) {
+  life[i]--;
+  if (life[i] <= 0) {
+    if (condenseT === E.EMPTY || Math.random() < 0.7) setCell(x, y, condenseT);
+    else life[i] = 60;   // 没地方凝结就再飘一会儿
+    return;
+  }
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  const r = Math.random();
+  if (r < 0.55) tryMoveOrSink(x, y, x, y - 1, myT);
+  else if (r < 0.8) tryMoveOrSink(x, y, x + dir, y - 1, myT);
+  else tryMoveOrSink(x, y, x + dir, y, myT);
+}
+
+function stepOnce() {
+  frame++;
+  moved.fill(0);
+  const l2r = (frame & 1) === 0;
+  for (let y = H - 2; y >= 0; y--) {
+    const row = y * W;
+    for (let xx = 0; xx < W; xx++) {
+      const x = l2r ? xx : W - 1 - xx;
+      const i = row + x;
+      if (moved[i]) continue;
+      const t = type[i];
+      switch (t) {
+        case E.SAND:
+          updSand(x, y, i, t);
+          break;
+        case E.SALT: {
+          /* 溶于水 */
+          const dirs = [[0, 1], [1, 0], [-1, 0], [0, -1]];
+          const [dx, dy] = dirs[(Math.random() * 4) | 0];
+          if (inb(x + dx, y + dy) && at(x + dx, y + dy) === E.WATER && Math.random() < 0.06) {
+            setCell(x + dx, y + dy, E.SALTW);
+            setCell(x, y, E.EMPTY);
+            break;
+          }
+          updSand(x, y, i, t);
+          break;
+        }
+        case E.WATER:
+        case E.SALTW:
+          updLiquid(x, y, i, t);
+          break;
+        case E.OIL:
+          updLiquid(x, y, i, t);
+          break;
+        case E.ACID:
+          acidReact(x, y);
+          if (type[i] === E.ACID) updLiquid(x, y, i, t);   // 没被消耗才移动
+          break;
+        case E.LAVA:
+          lavaReact(x, y, i);
+          if (type[i] === E.LAVA) updLiquid(x, y, i, t, 2);
+          break;
+        case E.FIRE:
+          life[i]--;
+          if (life[i] <= 0) { setCell(x, y, Math.random() < 0.45 ? E.SMOKE : E.EMPTY, 50); break; }
+          if (fireReact(x, y, i)) break;
+          if (Math.random() < 0.12) {   // 火焰"扒"在燃料上燃烧，只偶尔飘起余烬
+            const dir = Math.random() < 0.5 ? 1 : -1;
+            if (!tryMoveOrSink(x, y, x, y - 1, t)) tryMoveOrSink(x, y, x + dir, y - 1, t);
+          }
+          break;
+        case E.STEAM:
+          updGas(x, y, i, t, E.WATER, 400);
+          break;
+        case E.SMOKE:
+          updGas(x, y, i, t, E.EMPTY, 160);
+          break;
+        default: break;   // WALL / WOOD / STONE / EMPTY 静止
+      }
+    }
+  }
+}
+
+/* ================= 渲染 ================= */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+let img = null, buf32 = null;
+
+function render() {
+  const d = buf32;
+  for (let i = 0; i < N; i++) {
+    const t = type[i];
+    if (t === E.FIRE) { d[i] = PAL32[E.FIRE][(life[i] + ((i * 7) >> 4)) & 3]; continue; }
+    if (t === E.LAVA) { d[i] = PAL32[E.LAVA][(shade[i] + (frame >> 3)) & 3]; continue; }
+    d[i] = PAL32[t][shade[i]];
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/* ================= 画布尺寸 ================= */
+const CELL = 4;   // 1 细胞 = 4 CSS px
+function resize() {
+  const rect = document.getElementById("stage").getBoundingClientRect();
+  const w = Math.max(40, Math.floor(rect.width / CELL));
+  const h = Math.max(40, Math.floor(rect.height / CELL));
+  if (w === W && h === H) return;
+  allocGrid(w, h);
+  cv.width = W; cv.height = H;
+  img = ctx.createImageData(W, H);
+  buf32 = new Uint32Array(img.data.buffer);
+  applyPreset(currentPreset);
+}
+window.addEventListener("resize", resize);
+
+/* ================= 笔刷 ================= */
+let brushType = E.SAND, brushR = 6, paused = false;
+const brush = { active: false, x: 0, y: 0 };
+
+function paintAt(gx, gy, t, r) {
+  const rr = r * r;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > rr) continue;
+      const x = gx + dx, y = gy + dy;
+      if (!inb(x, y)) continue;
+      if (t !== E.EMPTY && Math.random() < 0.25 && isLiquid(t)) continue;      // 液体喷溅感
+      if (t !== E.EMPTY && Math.random() < 0.35 && t === E.FIRE) continue;
+      if (t === E.FIRE) setCell(x, y, t, 24 + ((Math.random() * 24) | 0));
+      else setCell(x, y, t);
+    }
+  }
+}
+
+function pointerCell(e) {
+  const r = cv.getBoundingClientRect();
+  const p = e.touches ? e.touches[0] : e;
+  return {
+    x: Math.floor((p.clientX - r.left) / r.width * W),
+    y: Math.floor((p.clientY - r.top) / r.height * H),
+  };
+}
+function down(e) { e.preventDefault(); const p = pointerCell(e); brush.active = true; brush.x = p.x; brush.y = p.y; paintAt(p.x, p.y, brushType, brushR); }
+function move(e) {
+  if (!brush.active) return; e.preventDefault();
+  const p = pointerCell(e);
+  /* 沿途插值，快速划动也不断线 */
+  const dx = p.x - brush.x, dy = p.y - brush.y;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+  for (let s = 1; s <= steps; s++) paintAt(brush.x + dx * s / steps | 0, brush.y + dy * s / steps | 0, brushType, brushR);
+  brush.x = p.x; brush.y = p.y;
+}
+function up() { brush.active = false; }
+cv.addEventListener("mousedown", down); cv.addEventListener("mousemove", move);
+window.addEventListener("mouseup", up);
+cv.addEventListener("touchstart", down, { passive: false });
+cv.addEventListener("touchmove", move, { passive: false });
+window.addEventListener("touchend", up);
+
+/* ================= 预设场景 ================= */
+let currentPreset = "blank";
+
+function fillRect(x0, y0, x1, y1, t) {
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) setCell(x, y, t);
+}
+function fillDisc(cx, cy, r, t, density = 1) {
+  for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++)
+    if (x * x + y * y <= r * r && Math.random() < density) setCell(cx + x, cy + y, t);
+}
+function tree(x, yBase, hgt, cr = 4) {
+  for (let k = 0; k < hgt; k++) setCell(x, yBase - k, E.WOOD);
+  fillDisc(x, yBase - hgt - 2, cr, E.WOOD, 0.75);
+}
+
+const PRESETS = {
+  blank() {},
+  volcano() {
+    const cxm = W >> 1;
+    /* 海 */
+    fillRect(0, (H * 0.80) | 0, W - 1, H - 1, E.WATER);
+    fillRect(0, H - 3, W - 1, H - 1, E.SAND);
+    /* 火山体：从海底升起的三角形石山 */
+    const topY = (H * 0.30) | 0;
+    const halfAt = y => ((y - topY) / (H - topY)) * W * 0.22 + 3;
+    for (let y = topY; y < H; y++) {
+      const half = halfAt(y);
+      for (let x = cxm - half | 0; x <= cxm + half; x++) {
+        if (inb(x, y)) setCell(x, y, E.STONE);
+      }
+    }
+    /* 火山口 + 熔岩池 */
+    const cr = Math.max(4, (W * 0.035) | 0);
+    fillDisc(cxm, topY + 2, cr + 3, E.EMPTY);
+    fillRect(cxm - cr, topY, cxm + cr, topY + cr + 2, E.LAVA);
+    /* 山坡表面的树（贴合山体轮廓） */
+    const surfTree = dx => {
+      const x = cxm + dx;
+      let y = topY;
+      while (y < H - 1 && !([E.STONE, E.WATER].includes(at(x, y + 1)))) y++;
+      if (at(x, y + 1) === E.STONE) tree(x, y, 6);
+    };
+    surfTree(-(W * 0.10) | 0);
+    surfTree((W * 0.09) | 0);
+  },
+  desert() {
+    /* 起伏沙丘 */
+    for (let x = 0; x < W; x++) {
+      const h = H * 0.72 + Math.sin(x * 0.09) * H * 0.03 + Math.sin(x * 0.023 + 2) * H * 0.05;
+      for (let y = h | 0; y < H; y++) setCell(x, y, E.SAND);
+    }
+    /* 地下油藏（石壳包裹） */
+    const ox = (W * 0.62) | 0, oy = (H * 0.88) | 0, orx = (W * 0.14) | 0, ory = (H * 0.045) | 0;
+    for (let y = -ory - 2; y <= ory + 2; y++) for (let x = -orx - 2; x <= orx + 2; x++) {
+      const v = (x * x) / (orx * orx) + (y * y) / (ory * ory);
+      if (v <= 1) setCell(ox + x, oy + y, E.OIL);
+      else if (v <= 1.35) setCell(ox + x, oy + y, E.STONE);
+    }
+    /* 地表小木屋（大尺度，火烧蔓延才有戏） */
+    const surf = sx => (H * 0.72 + Math.sin(sx * 0.09) * H * 0.03 + Math.sin(sx * 0.023 + 2) * H * 0.05) | 0;
+    const bx = (W * 0.2) | 0;
+    const by = Math.max(surf(bx), surf(bx + 22), surf(bx + 44));   // 对齐最低点，全屋落地
+    const cw = 22, chh = 34;
+    fillRect(bx, by - chh, bx + cw * 2, by - 1, E.WOOD);                    // 墙体
+    fillRect(bx - 4, by - chh - 5, bx + cw * 2 + 4, by - chh, E.WOOD);      // 屋顶
+    fillRect(bx + 5, by - chh + 6, bx + cw * 2 - 5, by - 3, E.EMPTY);       // 屋内掏空
+    fillRect(bx + cw - 4, by - 15, bx + cw + 4, by - 1, E.EMPTY);           // 门洞
+    /* 屋旁大树 */
+    tree((W * 0.45) | 0, surf((W * 0.45) | 0), 17, 9);
+  },
+  tank() {
+    const x0 = (W * 0.08) | 0, x1 = (W * 0.92) | 0, y0 = (H * 0.38) | 0, y1 = H - 4;
+    fillRect(x0, y0, x1, y0 + 2, E.WALL);
+    fillRect(x0, y0, x0 + 2, y1, E.WALL);
+    fillRect(x1 - 2, y0, x1, y1, E.WALL);
+    fillRect(x0, y1 - 2, x1, y1, E.WALL);
+    fillRect(x0 + 3, (y0 + (y1 - y0) * 0.42) | 0, x1 - 3, y1 - 3, E.WATER);
+    fillRect(x0 + 3, y1 - 6, x1 - 3, y1 - 3, E.SAND);
+    /* 一小堆盐 */
+    fillDisc((W * 0.5) | 0, y1 - 9, 5, E.SALT);
+  },
+};
+
+function applyPreset(key) {
+  currentPreset = key;
+  type.fill(E.EMPTY);
+  PRESETS[key]();
+  document.querySelectorAll(".preset").forEach(b => b.classList.toggle("active", b.dataset.p === key));
+}
+
+/* ================= UI 绑定 ================= */
+const hud = document.getElementById("hud");
+const paletteEl = document.getElementById("palette");
+const PALETTE_ORDER = [E.SAND, E.WATER, E.OIL, E.FIRE, E.WOOD, E.STONE, E.LAVA, E.ACID, E.SALT, E.WALL, E.EMPTY];
+PALETTE_ORDER.forEach(t => {
+  const b = document.createElement("button");
+  b.className = "chip" + (t === brushType ? " active" : "");
+  b.dataset.e = t;
+  const [r, g, bl] = PALETTE[t][1];
+  b.innerHTML = `<span class="dot" style="background:rgb(${r},${g},${bl})"></span>${NAMES[t]}`;
+  b.addEventListener("click", () => {
+    brushType = t;
+    document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", +c.dataset.e === t));
+  });
+  paletteEl.appendChild(b);
+});
+
+const btnPause = document.getElementById("btnPause");
+function setPaused(p) { paused = p; btnPause.textContent = paused ? "▶ 继续" : "⏸ 暂停"; }
+btnPause.addEventListener("click", () => setPaused(!paused));
+document.getElementById("btnStep").addEventListener("click", () => { setPaused(true); stepOnce(); render(); });
+document.getElementById("btnClear").addEventListener("click", () => applyPreset("blank"));
+document.querySelectorAll(".preset").forEach(b => b.addEventListener("click", () => applyPreset(b.dataset.p)));
+document.getElementById("sB").addEventListener("input", e => {
+  brushR = +e.target.value;
+  document.getElementById("vB").textContent = brushR;
+});
+window.addEventListener("keydown", e => {
+  if (e.key === " ") { e.preventDefault(); setPaused(!paused); }
+  const d = parseInt(e.key);
+  if (d >= 1 && d <= PALETTE_ORDER.length) {
+    brushType = PALETTE_ORDER[d - 1];
+    document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", +c.dataset.e === brushType));
+  }
+});
+
+/* ================= 主循环 ================= */
+let lastT = performance.now(), fpsAcc = 0, fpsN = 0, fpsShown = 0;
+
+function loop(t) {
+  const raw = Math.min((t - lastT) / 1000, 0.1); lastT = t;
+  if (!paused) {
+    if (brush.active) paintAt(brush.x, brush.y, brushType, brushR);
+    stepOnce();
+  }
+  render();
+  fpsAcc += raw; fpsN++;
+  if (fpsAcc >= 0.5) {
+    fpsShown = Math.round(fpsN / fpsAcc);
+    let cells = 0;
+    for (let i = 0; i < N; i++) if (type[i] !== E.EMPTY) cells++;
+    hud.textContent = `FPS ${fpsShown} · 细胞 ${cells} · ${NAMES[brushType]}`;
+    fpsAcc = 0; fpsN = 0;
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ================= 调试 / 自动化 API ================= */
+window.SANDBOX = {
+  E,
+  dims: () => [W, H],
+  count: t => { let c = 0; for (let i = 0; i < N; i++) if (type[i] === t) c++; return c; },
+  countAll: () => { const m = {}; for (let i = 0; i < N; i++) if (type[i] !== E.EMPTY) m[type[i]] = (m[type[i]] || 0) + 1; return m; },
+  paint: (x, y, t, r = 5) => paintAt(x | 0, y | 0, t, r | 0),
+  setBrush: t => { brushType = t; },
+  setPaused,
+  step: n => { for (let k = 0; k < n; k++) stepOnce(); render(); },
+  fps: () => fpsShown,
+  preset: k => applyPreset(k),
+};
+
+/* ================= 启动 ================= */
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

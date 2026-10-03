@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at 50% 38%, #191930 0%, #0a0a12 62%, #06060c 100%);
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #ececf6;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+  }
+  /* 装饰粒子 */
+  .p { position: absolute; border-radius: 50%; opacity: .8; filter: blur(1px); }
+  .title {
+    font-size: 168px; font-weight: 800; letter-spacing: 14px;
+    background: linear-gradient(92deg, #ffb347 5%, #ff6b6b 38%, #b388ff 72%, #38bdf8 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 90px rgba(255, 150, 80, .18);
+    margin-bottom: 44px;
+  }
+  .sub { font-size: 46px; color: #b9b9d4; letter-spacing: 10px; margin-bottom: 90px; }
+  .tags { display: flex; gap: 26px; }
+  .tag {
+    font-size: 30px; color: #9a9ab8;
+    border: 1px solid #33334f; border-radius: 999px;
+    padding: 16px 34px; background: rgba(255,255,255,.03);
+  }
+  .elems { display: flex; gap: 18px; margin-top: 110px; }
+  .el { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .el .dot { width: 44px; height: 44px; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
+  .el .nm { font-size: 24px; color: #77779a; }
+</style>
+</head>
+<body>
+  <div class="title">元素沙盒</div>
+  <div class="sub">一粒沙的物理学 · 涌现的艺术</div>
+  <div class="tags">
+    <div class="tag">像素级物理模拟</div>
+    <div class="tag">11 种元素反应</div>
+    <div class="tag">零依赖 · 单文件</div>
+  </div>
+  <div class="elems" id="elems"></div>
+<script>
+  const els = [
+    ["#e0c26e", "沙"], ["#2a6ee0", "水"], ["#3a2a42", "油"], ["#ffa82e", "火"],
+    ["#ff6e18", "熔岩"], ["#5ce84a", "酸"], ["#b0bed0", "蒸汽"], ["#7e7e88", "石"],
+  ];
+  const box = document.getElementById("elems");
+  for (const [c, n] of els) {
+    const d = document.createElement("div");
+    d.className = "el";
+    d.innerHTML = `<div class="dot" style="background:${c}"></div><div class="nm">${n}</div>`;
+    box.appendChild(d);
+  }
+  /* 背景漂浮粒子 */
+  const colors = ["#ffb347", "#38bdf8", "#b388ff", "#ff6b6b", "#5ce84a"];
+  for (let i = 0; i < 42; i++) {
+    const p = document.createElement("div");
+    p.className = "p";
+    const s = 3 + Math.random() * 9;
+    p.style.width = p.style.height = s + "px";
+    p.style.left = Math.random() * 1080 + "px";
+    p.style.top = Math.random() * 1920 + "px";
+    p.style.background = colors[i % colors.length];
+    p.style.opacity = 0.15 + Math.random() * 0.5;
+    document.body.appendChild(p);
+  }
+</script>
+</body>
+</html>

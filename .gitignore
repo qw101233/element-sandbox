@@ -1,0 +1,5 @@
+# 原始录制素材体积大，不入库（最终成品 video/*.mp4 保留）
+video/raw/
+tools/bgm.wav
+__pycache__/
+*.log
